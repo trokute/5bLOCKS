@@ -25,7 +25,7 @@ let cv,cx
 let W=0,H=0,DPR=1
 const rows=6,cols=5
 let tray=[],answer=[],board=[],colors=[],curRow=0,curCol=0,state='play'
-let fillGrid=[],fillN=0,fillTotal=0,fillWait=0,fillWin=false
+let fillGrid=[],fillN=0,fillTotal=0,fillWait=0,fillWin=false,fillReset=false
 let toast=0
 let mx=0,my=0,mdown=false,mpressed=false,plastX=0,plastY=0
 let cellSize=64,gap=10
@@ -70,13 +70,14 @@ function sRow(){
 	colors[curRow]=rc
 	const win=rc.every(v=>v===3)
 	curRow++
-	if(win)sFill(true)
-	else if(curRow>=rows)sFill(false)
+	if(win)sFill('win')
+	else if(curRow>=rows)sFill('lose')
 	else curCol=0
 }
-function sFill(win){
+function sFill(mode){
 	state='fill'
-	fillWin=win
+	fillWin=mode==='win'
+	fillReset=mode==='reset'
 	const s=Math.max(28,Math.min(48,Math.floor(Math.min(W,H)/16)))
 	const fc=Math.ceil(W/s),fr=Math.ceil(H/s)
 	fillGrid=[]
@@ -115,16 +116,16 @@ function lyt(){
 	cellSize=Math.max(38,Math.min(64,Math.floor((Math.min(W*0.86,cols*74))/cols)))
 	gap=Math.floor(cellSize*0.16)
 }
-function dTile(id,x,y,s,tint){
-	cx.fillStyle=tint||'#4d4d4d'
-	cx.fillRect(x,y,s,s)
-	cx.lineWidth=2
-	cx.strokeStyle='#2b2b2b'
-	cx.strokeRect(x,y,s,s)
+function dTile(g,id,x,y,s,tint,frz){
+	g.fillStyle=tint||'#4d4d4d'
+	g.fillRect(x,y,s,s)
+	g.lineWidth=2
+	g.strokeStyle='#2b2b2b'
+	g.strokeRect(x,y,s,s)
 	if(id!==null){
-		const im=curImg(id)
+		const im=frz===undefined?curImg(id):(IMGA[id]?IMGA[id][frz%IMGA[id].length]:IMG[id])
 		const pad=s*0.16
-		if(im.complete)cx.drawImage(im,x+pad,y+pad,s-pad*2,s-pad*2)
+		if(im.complete)g.drawImage(im,x+pad,y+pad,s-pad*2,s-pad*2)
 	}
 }
 function dPlay(){
@@ -150,7 +151,7 @@ function dPlay(){
 			if(v===3)tint='#47cb46'
 			else if(v===2)tint='#ffe000'
 			else if(v===1)tint='#5a5a5a'
-			dTile(board[r][c],x,y,cellSize,tint)
+			dTile(cx,board[r][c],x,y,cellSize,tint)
 		}
 	}
 	const trayS=cellSize
@@ -163,7 +164,7 @@ function dPlay(){
 		const y=ty
 		let bg='#585858'
 		if(onR(mx,my,x,y,trayS,trayS))bg=mdown?'#454545':'#6e6e6e'
-		dTile(tray[i],x,y,trayS,bg)
+		dTile(cx,tray[i],x,y,trayS,bg)
 		trayHit.push({x,y,s:trayS,id:tray[i]})
 	}
 	const by=ty+trayS+30
@@ -215,16 +216,65 @@ function dFill(){
 		if(im.complete)cx.drawImage(im,g.x,g.y,g.s,g.s)
 	}
 	if(fillWait>36){
-		if(fillWin)state='share'
-		else nGame()
+		if(fillReset)nGame()
+		else state='share'
 	}
+}
+function pic(){
+	const s=64,gap=10
+	const pr=curRow
+	const gridW=cols*s+(cols-1)*gap
+	const gridH=pr*s+Math.max(0,pr-1)*gap
+	const padX=40,padY=40,titleH=50,gapMid=30,ansH=s
+	const w=gridW+padX*2
+	const h=padY+gridH+gapMid+titleH+gapMid+ansH+padY
+	const oc=document.createElement('canvas')
+	oc.width=w;oc.height=h
+	const g=oc.getContext('2d')
+	g.fillStyle='#404040'
+	g.fillRect(0,0,w,h)
+	let y=padY
+	for(let r=0;r<pr;r++){
+		for(let c=0;c<cols;c++){
+			const x=padX+c*(s+gap)
+			let tint='#4d4d4d'
+			const v=colors[r][c]
+			if(v===3)tint='#47cb46'
+			else if(v===2)tint='#ffe000'
+			else if(v===1)tint='#5a5a5a'
+			dTile(g,board[r][c],x,y,s,tint,0)
+		}
+		y+=s+gap
+	}
+	y=padY+gridH+gapMid
+	g.font='bold 28px '+FONT
+	g.fillStyle='#e6e6e6'
+	g.textBaseline='top'
+	const title='5bLOCKS'
+	const tw=g.measureText(title).width
+	g.fillText(title,(w-tw)/2,y)
+	y+=titleH+gapMid
+	for(let c=0;c<cols;c++){
+		const x=padX+c*(s+gap)
+		dTile(g,answer[c],x,y,s,'#4d4d4d',0)
+	}
+	try{
+		oc.toBlob(b=>{
+			const u=URL.createObjectURL(b)
+			const a=document.createElement('a')
+			a.href=u
+			a.download='5blocks.png'
+			a.click()
+			URL.revokeObjectURL(u)
+		})
+	}catch(err){}
 }
 function dShare(){
 	cx.fillStyle='#404040'
 	cx.fillRect(0,0,W,H)
 	cx.font='bold 26px '+FONT
 	cx.fillStyle='#ffffff'
-	const t='SOLVED IN '+curRow+'/'+rows
+	const t=fillWin?('SOLVED IN '+curRow+'/'+rows):'OUT OF TRIES'
 	cx.textBaseline='top'
 	cx.fillText(t,(W-cx.measureText(t).width)/2,60)
 	const boxW=Math.min(520,W*0.86)
@@ -260,13 +310,22 @@ function dShare(){
 	cx.fillStyle='#ffffff'
 	const nt='NEW GAME'
 	cx.fillText(nt,bx2+(bw-cx.measureText(nt).width)/2,by+(bh-18)/2)
+	const by2=by+bh+16
+	let pbg='#404040'
+	if(onR(mx,my,bx1,by2,bw,bh))pbg=mdown?'#2c2c2c':'#525252'
+	cx.fillStyle=pbg
+	cx.fillRect(bx1,by2,bw,bh)
+	cx.fillStyle='#ffffff'
+	const pt='PIC'
+	cx.fillText(pt,bx1+(bw-cx.measureText(pt).width)/2,by2+(bh-18)/2)
 	if(toast>0)toast--
 	if(mpressed){
 		if(onR(plastX,plastY,bx1,by,bw,bh)){
 			try{navigator.clipboard.writeText(sText())}catch(err){}
 			toast=60
 		}
-		if(onR(plastX,plastY,bx2,by,bw,bh))sFill(false)
+		if(onR(plastX,plastY,bx2,by,bw,bh))sFill('reset')
+		if(onR(plastX,plastY,bx1,by2,bw,bh))pic()
 	}
 }
 function frm(){
