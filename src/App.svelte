@@ -23,7 +23,7 @@ const FONT="'Shag Lounge', Helvetica, sans-serif"
 
 let cv,cx
 let W=0,H=0,DPR=1
-const rows=6,cols=5
+let rows=6,cols=5,hardMode=false
 let tray=[],answer=[],board=[],colors=[],curRow=0,curCol=0,state='play'
 let fillGrid=[],fillN=0,fillTotal=0,fillWait=0,fillWin=false,fillReset=false
 let toast=0
@@ -39,7 +39,7 @@ function shuf(a){
 	}
 	return a
 }
-function pTray(){return shuf(IDS).slice(0,5)}
+function pTray(){return shuf(IDS).slice(0,cols)}
 function pAns(){
 	const a=[]
 	for(let i=0;i<cols;i++)a.push(tray[Math.floor(Math.random()*tray.length)])
@@ -129,19 +129,29 @@ function dTile(g,id,x,y,s,tint,frz){
 	}
 }
 function dPlay(){
-	lyt()
-	const gridW=cols*cellSize+(cols-1)*gap
-	const gridH=rows*cellSize+(rows-1)*gap
-	const gx=(W-gridW)/2
-	const gy=Math.max(70,H*0.14)
 	cx.fillStyle='#404040'
 	cx.fillRect(0,0,W,H)
 	cx.font='bold 24px '+FONT
 	cx.fillStyle='#e6e6e6'
 	const title='5bLOCKS'
 	const tw=cx.measureText(title).width
+	const titleX=(W-tw)/2
+	const titleY=24
 	cx.textBaseline='top'
-	cx.fillText(title,(W-tw)/2,24)
+	cx.fillText(title,titleX,titleY)
+	if(mpressed&&onR(plastX,plastY,titleX,titleY,tw,26)){
+		hardMode=!hardMode
+		cols=hardMode?8:5
+		rows=hardMode?5:6
+		nGame()
+		mpressed=false
+		return
+	}
+	lyt()
+	const gridW=cols*cellSize+(cols-1)*gap
+	const gridH=rows*cellSize+(rows-1)*gap
+	const gx=(W-gridW)/2
+	const gy=Math.max(70,H*0.14)
 	for(let r=0;r<rows;r++){
 		for(let c=0;c<cols;c++){
 			const x=gx+c*(cellSize+gap)
@@ -155,11 +165,11 @@ function dPlay(){
 		}
 	}
 	const trayS=cellSize
-	const trayW=5*trayS+4*gap
+	const trayW=cols*trayS+(cols-1)*gap
 	const tx=(W-trayW)/2
 	const ty=gy+gridH+40
 	const trayHit=[]
-	for(let i=0;i<5;i++){
+	for(let i=0;i<cols;i++){
 		const x=tx+i*(trayS+gap)
 		const y=ty
 		let bg='#585858'
